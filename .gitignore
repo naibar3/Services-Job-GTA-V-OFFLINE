@@ -1,0 +1,9 @@
+bin/
+dist/
+sdk/inc/
+sdk/lib/
+legacy_csharp/
+*.obj
+*.exp
+*.lib
+*.pdb

@@ -1,0 +1,5 @@
+﻿font_data.h embeds the TH Sarabun PSK font (two TrueType files, regular and bold) as byte arrays.
+TH Sarabun PSK is one of the Thai national fonts released by SIPA (Software Industry Promotion Agency, Thailand),
+free to use and redistribute with its copyright notice. Keep this notice when redistributing.
+To regenerate font_data.h, put any other free Thai font in its place with the same two array names
+(FONT_REG, FONT_BOLD) and their _LEN constants.

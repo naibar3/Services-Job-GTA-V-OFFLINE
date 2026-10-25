@@ -1,0 +1,132 @@
+<title>Services Job Simulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* layout: job tabs, top-down map, then HUD + pager cards that sit beside the map on wide screens and stack on phones */
+:root{--bg:#f3f4f2;--panel:#ffffff;--soft:#e8ebe8;--fg:#1c2421;--mute:#5d6a65;--line:#cfd6d2;--accent:#0f766e;--accent-bg:#d7efeb;--road:#b9c0bb;--dash:#9aa39e;--ok:#17803d}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111715;--panel:#1a2320;--soft:#202b27;--fg:#e6ece9;--mute:#9baba5;--line:#33413c;--accent:#4fd1c0;--accent-bg:#17403a;--road:#33403b;--dash:#4d5c56;--ok:#5fd68a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#111715;--panel:#1a2320;--soft:#202b27;--fg:#e6ece9;--mute:#9baba5;--line:#33413c;--accent:#4fd1c0;--accent-bg:#17403a;--road:#33403b;--dash:#4d5c56;--ok:#5fd68a;color-scheme:dark}
+html,body{background:var(--bg);color:var(--fg)}
+body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif;padding-block:18px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:980px;margin:0 auto}
+h1{font-size:22px;margin:0 0 2px;font-weight:600;text-wrap:balance}
+.sub{color:var(--mute);margin:0 0 14px;font-size:14px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.jb{padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);cursor:pointer;font:inherit;font-size:14px}
+.jb.on{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);font-weight:600}
+.jb:focus-visible,.ctl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.mapcol{flex:1 1 440px;min-width:0}
+.side{flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:10px;max-width:100%}
+svg#map{width:100%;height:auto;background:var(--soft);border-radius:10px;border:1px solid var(--line);display:block}
+.ctls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.ctl{padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);font:inherit;font-size:14px;cursor:pointer}
+.ctl:disabled{opacity:.4;cursor:default}
+#cnt{margin-left:auto;font-size:13px;color:var(--mute)}
+.hud{background:#0f1319;color:#fff;border-radius:8px;padding:10px 12px;border-left:4px solid #26a69a}
+.hud .n{font-size:14px;font-weight:600;color:#ffd64f}
+.hud .o{font-size:14px;margin-top:4px}
+.hud .i{font-size:13px;margin-top:4px;color:#c8dce6;white-space:pre-line}
+.chip{background:#0f1319;color:#fff;border-radius:6px;padding:8px 12px;font-size:14px;font-weight:600;text-align:center}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.card h2{font-size:13px;margin:0 0 6px;font-weight:600}
+#pg{font-size:13px;line-height:1.5}
+.offer{background:var(--accent-bg);color:var(--accent);padding:6px 9px;border-radius:6px}
+.offer b{font-weight:600}
+#toast{font-size:13px;color:var(--mute);min-height:38px}
+.ent{transition:transform .9s ease,opacity .4s}
+@keyframes pu{0%{opacity:.9}50%{opacity:.35}100%{opacity:.9}}
+.pz{animation:pu 1.3s infinite}
+@media (prefers-reduced-motion:reduce){.ent{transition:none}.pz{animation:none}}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mute);margin-top:12px}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;background:var(--c)}
+</style>
+<div class="wrap">
+<h1>Services Job Simulator</h1>
+<p class="sub">จำลองขั้นตอนของแต่ละงานในมอด ServicesJobByNakimiTV ตามโค้ดจริง กด "ถัดไป" หรือเล่นอัตโนมัติ</p>
+<div class="tabs" id="jobs"></div>
+<div class="row">
+<div class="mapcol">
+<svg id="map" viewBox="0 0 680 320" role="img" aria-label="แผนที่จำลอง"><title>แผนที่จำลอง</title></svg>
+<div class="ctls">
+<button class="ctl" id="prev">&larr; ก่อนหน้า</button>
+<button class="ctl" id="next">ถัดไป &rarr;</button>
+<button class="ctl" id="play">เล่นอัตโนมัติ</button>
+<span id="cnt"></span>
+</div>
+<div class="legend">
+<span style="--c:#FFCD28">จุดรับ</span><span style="--c:#3CDC78">จุดส่ง</span><span style="--c:#46A0FF">จุดรับงาน</span><span style="--c:#FF4646">จุดเกิดเหตุ</span>
+</div>
+</div>
+<div class="side">
+<div class="hud"><div class="n" id="hn"></div><div class="o" id="ho"></div><div class="i" id="hi"></div></div>
+<div id="prompt"></div>
+<div class="card"><h2>เพจเจอร์ (F9)</h2><div id="pg"></div></div>
+<div id="toast"></div>
+</div>
+</div>
+</div>
+<script>
+var Y='#FFCD28',G='#3CDC78',R='#FF4646',B='#46A0FF';
+var J={
+tow:{n:'ลากรถ / ยึดรถ',offer:'[ยึดรถ] ค้างชำระ แถว Strawberry Ave',sub:'ส่งที่ ลานยึดรถ Davis · $1,150',ents:{me:['ped',330,285,'#fff',''],tow:['car',70,255,'#ef9f27','รถลาก'],tg:['car',300,80,R,'รถเป้าหมาย'],ow:['ped',270,70,'#d4537e','เจ้าของรถ']},steps:[
+{o:'ไปที่จุดรับงาน ลานยึดรถ Davis แล้วขึ้นรถลาก',i:'',m:[[70,255,22,B,'จุดรับงาน']],e:{me:[330,285],tow:[70,255]},show:['me','tow'],t:'ไปรับรถที่จุดรับงาน: ลานยึดรถ Davis'},
+{o:'ไปยังจุดเกิดเหตุ ห่าง 1.2 กม.',i:'',m:[[300,80,28,Y,'จุดยึดรถ']],e:{tow:[200,170]},show:['tow'],t:'ศูนย์: ตามไปยึดรถคันนั้น ระวังเจ้าของ!'},
+{o:'ถอยท้ายรถลากเข้าหารถเป้าหมาย',i:'ห่าง 8 ม.',m:[],e:{tow:[300,112],tg:[300,80],ow:[268,70]},show:['tow','tg','ow'],p:'กด E เพื่อเกี่ยวรถ',t:'เจ้าของรถเห็นเข้าแล้ว วิ่งมาตะโกนด่า!'},
+{o:'ลากไปส่งที่ ลานยึดรถ Davis',i:'ห่าง 1.1 กม.',m:[[600,250,34,G,'ลานส่งรถ']],e:{tow:[420,180],tg:[420,150],ow:[395,160]},show:['tow','tg','ow'],t:'เกี่ยวรถแล้ว ขับไปส่งที่ ลานยึดรถ Davis'},
+{o:'ลากไปส่งที่ ลานยึดรถ Davis',i:'ห่าง 14 ม.',m:[[600,250,34,G,'ลานส่งรถ']],e:{tow:[595,248],tg:[595,218],ow:[540,200]},show:['tow','tg'],p:'กด E เพื่อปล่อยรถ'},
+{o:'ปล่อยรถเรียบร้อย',i:'',m:[],e:{tow:[600,270],tg:[595,218]},show:['tow','tg'],t:'ยึดรถสำเร็จ  ได้รับ $1,550 (โบนัสทำเวลา)',done:1}]},
+taxi:{n:'แท็กซี่',offer:'[แท็กซี่] ด่วน! รับที่ Alta St',sub:'ไปส่ง คาสิโน Diamond · $620',ents:{me:['ped',330,40,'#fff',''],cab:['car',80,60,'#f5c518','แท็กซี่'],px:['ped',210,255,'#378add','ผู้โดยสาร']},steps:[
+{o:'ไปที่จุดรับงาน อู่แท็กซี่ Downtown แล้วขึ้นรถแท็กซี่',i:'',m:[[80,60,20,B,'จุดรับงาน']],e:{me:[330,40],cab:[80,60]},show:['me','cab'],t:'ไปรับรถที่จุดรับงาน: อู่แท็กซี่ Downtown Cab Co.'},
+{o:'ไปรับผู้โดยสาร ห่าง 900 ม.',i:'',m:[[210,255,26,Y,'จุดรับผู้โดยสาร']],e:{cab:[150,170],px:[210,255]},show:['cab','px'],t:'ศูนย์: ผู้โดยสารรออยู่ที่จุดสีเหลือง'},
+{o:'ผู้โดยสารกำลังขึ้นรถ',i:'',m:[[210,255,26,Y,'จุดรับผู้โดยสาร']],e:{cab:[208,250],px:[212,252]},show:['cab','px'],t:'ผู้โดยสาร: "รีบมาก! ถึงทันเวลาจะให้โบนัส"'},
+{o:'ไปส่งที่ คาสิโน Diamond',i:'มิเตอร์ $240  ห่าง 1.6 กม.\nเวลา 1:48',m:[[600,80,32,G,'จุดส่งผู้โดยสาร']],e:{cab:[420,160],px:[420,160]},show:['cab'],t:''},
+{o:'ผู้โดยสารกำลังลงรถ',i:'',m:[[600,80,32,G,'จุดส่งผู้โดยสาร']],e:{cab:[598,80],px:[625,100]},show:['cab','px'],t:''},
+{o:'ส่งผู้โดยสารเรียบร้อย',i:'',m:[],e:{cab:[598,80],px:[650,130]},show:['cab','px'],t:'ทันเวลา! โบนัสด่วน  ได้รับ $930',done:1}]},
+tour:{n:'รถทัวร์',offer:'[รถทัวร์] ทัวร์ชมวิวลอสแซนโตส',sub:'4 จุดแวะ  ระยะทางรวม 18.4 กม. · $3,900',ents:{me:['ped',330,300,'#fff',''],bus:['car',60,160,'#5dcaa5','รถทัวร์'],p1:['ped',0,0,'#d4537e',''],p2:['ped',0,0,'#378add',''],p3:['ped',0,0,'#ba7517','']},steps:[
+{o:'ไปที่จุดรับงาน สถานีรถทัวร์ แล้วขึ้นรถทัวร์',i:'',m:[[60,160,22,B,'จุดรับงาน']],e:{me:[330,300],bus:[60,160]},show:['me','bus'],t:'ไปรับรถที่จุดรับงาน: สถานีรถทัวร์ Los Santos'},
+{o:'จุดที่ 1/4: ป้ายฮอลลีวูด',i:'ห่าง 3.2 กม.',m:[[180,70,28,Y,'จุดแวะที่ 1',1],[330,250,0,B,'',2],[480,90,0,B,'',3],[620,230,0,B,'',4]],e:{bus:[130,120]},show:['bus'],t:'ผู้โดยสาร 8 คนขึ้นรถแล้ว เริ่มทัวร์'},
+{o:'ผู้โดยสารกำลังชมวิว (ป้ายฮอลลีวูด)',i:'ออกรถอีก 0:09 (ออกรถไม่ได้จนกว่าผู้โดยสารจะขึ้นครบ)\nจุดต่อไป: หอดูดาว Galileo',m:[[330,250,28,Y,'จุดแวะที่ 2',2],[480,90,0,B,'',3],[620,230,0,B,'',4]],e:{bus:[180,72],p1:[160,52],p2:[205,50],p3:[190,95]},show:['bus','p1','p2','p3'],t:'ถึงจุดที่ 1 ผู้โดยสารลงชมวิว 15 วินาที (จุด 1 ถูกลบออกจากแผนที่)'},
+{o:'รอผู้โดยสารขึ้นรถ',i:'ออกรถไม่ได้จนกว่าผู้โดยสารจะขึ้นครบ',m:[[330,250,28,Y,'จุดแวะที่ 2',2],[480,90,0,B,'',3],[620,230,0,B,'',4]],e:{bus:[180,72],p1:[178,76],p2:[181,74],p3:[179,75]},show:['bus','p1','p2','p3'],t:'หมดเวลาชมวิว ผู้โดยสารกำลังเดินขึ้นรถ'},
+{o:'จุดที่ 2/4: หอดูดาว Galileo',i:'ห่าง 2.4 กม.',m:[[330,250,28,Y,'จุดแวะที่ 2',2],[480,90,0,B,'',3],[620,230,0,B,'',4]],e:{bus:[260,170]},show:['bus'],t:'ออกเดินทางไปจุดที่ 2'},
+{o:'ทัวร์จบแล้ว',i:'',m:[],e:{bus:[620,232]},show:['bus'],t:'ทัวร์จบ ผู้โดยสารประทับใจ (โบนัสขับนิ่ม)  ได้รับ $4,500',done:1}]},
+truck:{n:'รถบรรทุก',offer:'[ขนส่ง] สินค้าเปราะบาง',sub:'รับที่ Elysian Island ส่ง ฟาร์ม เกรปซีด · $2,900',ents:{me:['ped',330,300,'#fff',''],tr:['car',60,280,'#888780','หัวลาก+พ่วง']},steps:[
+{o:'ไปที่จุดรับงาน ท่าเรือ Elysian แล้วขึ้นหัวลาก',i:'',m:[[60,280,22,B,'จุดรับงาน']],e:{me:[330,300],tr:[60,280]},show:['me','tr'],t:'ไปรับรถที่จุดรับงาน: ท่าเรือ Elysian Island'},
+{o:'ไปรับสินค้าที่ ท่าเรือ Elysian',i:'ห่าง 420 ม.',m:[[200,230,30,Y,'จุดรับสินค้า']],e:{tr:[130,260]},show:['tr'],t:'ศูนย์: ไปรับสินค้าที่ ท่าเรือ Elysian Island'},
+{o:'กำลังโหลดสินค้า 4/6',i:'',m:[[200,230,30,Y,'จุดรับสินค้า']],e:{tr:[200,232]},show:['tr'],t:''},
+{o:'ไปส่งที่ ฟาร์ม เกรปซีด',i:'ห่าง 7.8 กม.\nความเสียหายสินค้า 8%',m:[[610,70,32,G,'จุดส่งสินค้า']],e:{tr:[400,150]},show:['tr'],t:'โหลดสินค้าเสร็จ ไปส่งที่ ฟาร์ม เกรปซีด'},
+{o:'กำลังขนสินค้าลง 3/6',i:'',m:[[610,70,32,G,'จุดส่งสินค้า']],e:{tr:[608,72]},show:['tr'],t:''},
+{o:'ส่งสินค้าครบ',i:'',m:[],e:{tr:[608,72]},show:['tr'],t:'ส่งสินค้าครบ  ได้รับ $2,670',done:1}]},
+amb:{n:'รถพยาบาล',offer:'[รถพยาบาล] อุบัติเหตุรถชน แถว Del Perro Fwy',sub:'ส่งต่อที่ รพ. Pillbox Hill · $1,280',ents:{me:['ped',330,300,'#fff',''],am:['car',70,70,'#e24b4a','รถพยาบาล'],pt:['ped',335,238,'#d4537e','ผู้ป่วย'],gu:['gurney',0,0,'#b4b2a9','เปล'],m1:['ped',0,0,'#378add',''],m2:['ped',0,0,'#378add','']},steps:[
+{o:'ไปที่จุดรับงาน รพ. Pillbox Hill แล้วขึ้นรถพยาบาล',i:'',m:[[70,70,22,B,'จุดรับงาน']],e:{me:[330,300],am:[70,70]},show:['me','am'],t:'ไปรับรถที่จุดรับงาน: รพ. Pillbox Hill'},
+{o:'ไปที่เกิดเหตุ ห่าง 2.1 กม.',i:'ผู้ช่วยนั่งรอในรถ',m:[[335,238,28,R,'จุดเกิดเหตุ - จอดใกล้ผู้ป่วย']],e:{am:[200,150]},show:['am','pt'],t:'ศูนย์: ผู้ช่วยพยาบาลประจำรถแล้ว รีบไปที่เกิดเหตุ'},
+{o:'จอดนิ่งๆ ผู้ช่วยกำลังเข้าไปช่วยผู้ป่วย',i:'อาการผู้ป่วย 100%',m:[[335,238,28,Y,'จุดเกิดเหตุ - จอดใกล้ผู้ป่วย']],e:{am:[300,215],m1:[285,225],m2:[290,205],gu:[283,214]},show:['am','pt','m1','m2','gu'],t:''},
+{o:'ผู้ช่วยเข็นเปลไปหาผู้ป่วย',i:'อาการผู้ป่วย 98%',m:[],e:{am:[300,215],m1:[325,232],m2:[330,222],gu:[322,235],pt:[335,238]},show:['am','pt','m1','m2','gu'],t:''},
+{o:'ผู้ช่วยเข็นผู้ป่วยกลับขึ้นรถ',i:'อาการผู้ป่วย 97%',m:[],e:{am:[300,215],m1:[292,226],m2:[296,208],gu:[290,214],pt:[290,214]},show:['am','pt','m1','m2','gu'],t:''},
+{o:'ส่งผู้ป่วยที่ รพ. Pillbox Hill',i:'อาการผู้ป่วย 94%\nห่าง 2.4 กม.',m:[[70,70,28,G,'จุดส่งผู้ป่วย']],e:{am:[200,150],pt:[200,150]},show:['am'],t:'ผู้ป่วยอยู่บนรถแล้ว รีบไป รพ. Pillbox Hill'},
+{o:'ส่งผู้ป่วยถึงมือแพทย์',i:'อาการผู้ป่วย 91%',m:[],e:{am:[72,72],gu:[110,60],pt:[110,60],m1:[100,70],m2:[104,52]},show:['am','pt','m1','m2','gu'],t:'ส่งผู้ป่วยถึงมือแพทย์ อาการ 91%  ได้รับ $1,570',done:1}]},
+pol:{n:'ตำรวจไล่ล่า',offer:'[ตำรวจ] ไล่ล่าคนร้ายหนีหมายจับ แถว Palomino Ave',sub:'ชนรถคนร้าย 10 ครั้งให้ยอมจำนน แล้วคุมตัวส่งสถานี · $1,900',ents:{me:['ped',330,290,'#fff',''],cr:['car',70,250,'#378add','รถตำรวจ'],sc:['car',300,90,'#e24b4a','รถคนร้าย'],sp:['ped',0,0,'#ba7517','คนร้าย']},steps:[
+{o:'ไปที่จุดรับงาน สถานีตำรวจ Davis แล้วขึ้นรถตำรวจ',i:'',m:[[70,250,22,B,'จุดรับงาน']],e:{me:[330,290],cr:[70,250]},show:['me','cr'],t:'ไปรับรถที่จุดรับงาน: สถานีตำรวจ Davis'},
+{o:'ตามหาคนร้าย ห่าง 1.4 กม.',i:'',m:[[300,90,36,R,'พื้นที่คนร้าย']],e:{cr:[200,180]},show:['cr'],t:'ศูนย์: พบรถคนร้ายแถวจุดสีแดง ตามไปชนให้หยุด!'},
+{o:'ชนรถคนร้ายให้หยุด',i:'ชนแล้ว 3/10\nสภาพรถคนร้าย 70%\nห่าง 40 ม.',m:[],e:{cr:[395,150],sc:[420,130]},show:['cr','sc'],t:'ชนรถคนร้าย! 3/10 (คนร้ายขับเร็วมาก blip กระพริบบนแผนที่)'},
+{o:'ชนรถคนร้ายให้หยุด',i:'ชนแล้ว 9/10\nสภาพรถคนร้าย 10%\nห่าง 12 ม.',m:[],e:{cr:[520,205],sc:[540,195]},show:['cr','sc'],t:'ชนรถคนร้าย! 9/10 (รถยิ่งโดนชน ยิ่งช้าลง)'},
+{o:'ขับรถไปใกล้คนร้ายเพื่อรับตัว',i:'',m:[[578,215,26,G,'คนร้ายมอบตัว']],e:{cr:[535,205],sc:[560,198],sp:[578,215]},show:['cr','sc','sp'],t:'คนร้ายยอมจำนน ลงจากรถมามอบตัว ขับรถเข้าไปใกล้ๆ เพื่อรับตัว'},
+{o:'คนร้ายกำลังขึ้นรถ',i:'',m:[[578,215,26,G,'คนร้ายมอบตัว']],e:{cr:[574,212],sc:[560,198],sp:[570,210]},show:['cr','sc','sp'],t:''},
+{o:'ส่งตัวคนร้ายที่ สถานีตำรวจ Vespucci',i:'ห่าง 2.1 กม.',m:[[610,60,34,G,'สถานีตำรวจ']],e:{cr:[470,150]},show:['cr'],t:'คุมตัวคนร้ายแล้ว ส่งที่ สถานีตำรวจ Vespucci (สุ่มจาก 8 สถานี)'},
+{o:'เจ้าหน้าที่รับตัวคนร้าย',i:'',m:[],e:{cr:[608,62],sp:[640,42]},show:['cr','sp'],t:'จับกุมรวดเร็ว โบนัสพิเศษ  ได้รับ $2,500',done:1}]}
+};
+var order=['tow','taxi','tour','truck','amb','pol'],cur='tow',si=0,timer=null,svg=document.getElementById('map');
+var NS='http://www.w3.org/2000/svg';
+function el(t,a,p){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);(p||svg).appendChild(e);return e}
+function road(){[[0,160,680,160],[330,0,330,320],[60,0,60,320],[0,70,680,70],[0,250,680,250],[480,0,480,320],[620,0,620,320]].forEach(function(r){el('line',{x1:r[0],y1:r[1],x2:r[2],y2:r[3],stroke:'var(--road)','stroke-width':14,'stroke-linecap':'round'})});[[0,160,680,160],[330,0,330,320],[0,70,680,70],[0,250,680,250]].forEach(function(r){el('line',{x1:r[0],y1:r[1],x2:r[2],y2:r[3],stroke:'var(--dash)','stroke-width':1,'stroke-dasharray':'6 6'})})}
+var E={};
+function build(){svg.innerHTML='<title>แผนที่จำลอง</title>';road();el('g',{id:'mk'});E={};var j=J[cur];for(var k in j.ents){var d=j.ents[k],gr=el('g',{class:'ent'});if(d[0]=='car'){el('rect',{x:-16,y:-8,width:32,height:16,rx:4,fill:d[3],stroke:'#2c2c2a','stroke-width':1},gr)}else if(d[0]=='gurney'){el('rect',{x:-14,y:-5,width:28,height:10,rx:2,fill:d[3],stroke:'#2c2c2a','stroke-width':1},gr)}else{el('circle',{r:5,fill:d[3],stroke:'#2c2c2a','stroke-width':1},gr)}if(d[4]){var t=el('text',{y:-13,'text-anchor':'middle','font-size':11,fill:'var(--fg)'},gr);t.textContent=d[4]}gr.style.transform='translate('+d[1]+'px,'+d[2]+'px)';E[k]=gr}}
+function zone(m,carPos){var x=m[0],y=m[1],r=m[2],c=m[3],lab=m[4],n=m[5];var inside=carPos&&r>0&&Math.hypot(carPos[0]-x,carPos[1]-y)<r;var col=inside?'#5aff82':c;var g=el('g',{},document.getElementById('mk'));if(r>0){el('circle',{cx:x,cy:y,r:r,fill:col,'fill-opacity':.18,stroke:col,'stroke-width':3,class:'pz'},g);el('line',{x1:x,y1:y,x2:x,y2:y-60,stroke:col,'stroke-width':3,'stroke-opacity':.55},g);var w=lab.length*6.4+70;var lx=Math.max(4,Math.min(676-w,x-w/2));el('rect',{x:lx,y:y-88,width:w,height:22,rx:3,fill:'#0b0f14',opacity:.88},g);el('rect',{x:lx,y:y-88,width:w,height:3,fill:col},g);var t=el('text',{x:lx+w/2,y:y-72,'text-anchor':'middle','font-size':12,fill:'#fff'},g);t.textContent=lab+'  '+(carPos?Math.round(Math.hypot(carPos[0]-x,carPos[1]-y)*3.2)+' ม.':'')}else{el('circle',{cx:x,cy:y,r:9,fill:col,stroke:'#fff','stroke-width':1.5},g)}if(n){var tn=el('text',{x:x,y:y+4,'text-anchor':'middle','font-size':11,'font-weight':600,fill:'#fff'},g);tn.textContent=n}}
+function render(){var j=J[cur],s=j.steps[si],mk=document.getElementById('mk');while(mk.firstChild)mk.removeChild(mk.firstChild);var cp=null;['tow','cab','bus','tr','am','cr'].forEach(function(k){if(s.e[k])cp=s.e[k]});for(var k in E){var v=s.show.indexOf(k)>=0;E[k].style.opacity=v?1:0;if(s.e[k])E[k].style.transform='translate('+s.e[k][0]+'px,'+s.e[k][1]+'px)'}s.m.forEach(function(m){zone(m,cp)});document.getElementById('hn').textContent=j.n;document.getElementById('ho').textContent=s.o;document.getElementById('hi').textContent=s.i;document.getElementById('prompt').innerHTML=s.p?'<div class="chip">'+s.p+'</div>':'';document.getElementById('toast').textContent=s.t?'แจ้งเตือน: '+s.t:'';document.getElementById('cnt').textContent='ขั้นที่ '+(si+1)+' / '+j.steps.length;document.getElementById('pg').innerHTML=si==0?'<div class="offer"><b>'+j.offer+'</b><br>'+j.sub+'<br>กด Enter เพื่อรับงาน</div>':(s.done?'<span style="color:var(--ok)">งานเสร็จแล้ว รอศูนย์ส่งงานใหม่…</span>':'<span style="color:var(--mute)">กำลังทำงาน: '+j.n+'</span>');document.getElementById('prev').disabled=si==0;document.getElementById('next').disabled=si==j.steps.length-1}
+function stop(){if(timer){clearInterval(timer);timer=null;document.getElementById('play').textContent='เล่นอัตโนมัติ'}}
+function pick(k){cur=k;si=0;stop();build();render();document.querySelectorAll('.jb').forEach(function(b){b.classList.toggle('on',b.dataset.k==k)})}
+order.forEach(function(k){var b=document.createElement('button');b.className='jb';b.dataset.k=k;b.textContent=J[k].n;b.onclick=function(){pick(k)};document.getElementById('jobs').appendChild(b)});
+document.getElementById('next').onclick=function(){if(si<J[cur].steps.length-1){si++;render()}};
+document.getElementById('prev').onclick=function(){if(si>0){si--;render()}};
+document.getElementById('play').onclick=function(){if(timer){stop();return}document.getElementById('play').textContent='หยุด';timer=setInterval(function(){if(si<J[cur].steps.length-1){si++;render()}else{si=0;render()}},2400)};
+pick('tow');
+</script>
