@@ -15,6 +15,14 @@ struct PoliceChaseJob : Job {
     Place station;
     int stage = 0;   // 0 get police car, 1 chase, 2 surrender, 3 boarding, 4 deliver, 5 handover
     int hits = 0, lastHit = 0, startTime = 0, stageT = 0, awayStart = 0, seat = 2;
+    // reckless flight: pick far escape points away from the player, never brake for anything, charge forward again after every crash
+    float cruise = 24.0f;
+    Vector3 goal = V(0, 0, 0);
+    int goalAt = 0, stuckSince = 0, lastBoost = 0;
+    // driving style flags: no stopping for cars/peds, no steering around anything, may drive into oncoming traffic,
+    // shortcut links + switched-off nodes allowed, no cruise-speed limiting by road type
+    static const int kCrazyStyle = 512 + 256 + 262144;
+    Blip bSpotPt = 0;   // normal coordinate blip carrying the GPS route (radius blips cannot have a route)
 
     PoliceChaseJob(Vector3 s, float h, const std::string &car, int pay) : spot(s), spotHeading(h), carModel(car), basePay(pay) {}
     std::string Name() override { return "ตำรวจไล่ล่าคนร้าย"; }
@@ -56,7 +64,7 @@ struct PoliceChaseJob : Job {
             bArea = HUD::ADD_BLIP_FOR_RADIUS(spot, 220.0f);
             HUD::SET_BLIP_COLOUR(bArea, COL_RED);
             HUD::SET_BLIP_ALPHA(bArea, 110);
-            RouteSet(bArea);
+            bSpotPt = BlipPos(spot, SPR_WANTED, COL_RED, "Suspect area", true);
             stage = 1;
             Ui::Notify("ศูนย์: พบรถคนร้ายแถวจุดสีแดง ตามไปชนให้หยุด!");
         }
@@ -99,6 +107,8 @@ struct PoliceChaseJob : Job {
         if (VEHICLE::GET_VEHICLE_ENGINE_HEALTH(suspectCar) < 250.0f) VEHICLE::SET_VEHICLE_ENGINE_HEALTH(suspectCar, 250.0f);
         if (VEHICLE::GET_VEHICLE_PETROL_TANK_HEALTH(suspectCar) < 500.0f) VEHICLE::SET_VEHICLE_PETROL_TANK_HEALTH(suspectCar, 500.0f);
 
+        Rampage();
+
         float d = Dist(pp, Pos(suspectCar));
         objective = "ชนรถคนร้ายให้หยุด";
         info = "ชนแล้ว " + std::to_string(hits) + "/" + std::to_string(HitsNeeded) + "\nสภาพรถคนร้าย " + std::to_string(std::max(0, 100 - hits * 100 / HitsNeeded)) + "%\nห่าง " + KmStr(d);
@@ -122,18 +132,65 @@ struct PoliceChaseJob : Job {
         VEHICLE::SET_VEHICLE_TYRES_CAN_BURST(suspectCar, FALSE);
         PED::SET_PED_KEEP_TASK(suspect, TRUE);
         VEHICLE::SET_VEHICLE_ENGINE_ON(suspectCar, TRUE, TRUE, TRUE);
-        DriveFast(38.0f);
+        PED::SET_DRIVER_ABILITY(suspect, 1.0f);
+        PED::SET_DRIVER_AGGRESSIVENESS(suspect, 1.0f);
+        PED::SET_PED_STEERS_AROUND_VEHICLES(suspect, FALSE);
+        PED::SET_PED_STEERS_AROUND_PEDS(suspect, FALSE);
+        PED::SET_PED_STEERS_AROUND_OBJECTS(suspect, FALSE);
+        DriveFast(24.0f);
         DelBlip(bArea);
+        DelBlip(bSpotPt);
         bSuspect = BlipEnt(suspectCar, SPR_WANTED, COL_RED, "Suspect");
         HUD::SET_BLIP_FLASHES(bSuspect, TRUE);
         RouteSet(bSuspect);
         Ui::Notify("เห็นรถคนร้ายแล้ว! มันขับเร็วมาก");
     }
 
-    void DriveFast(float speed) { TASK::TASK_VEHICLE_DRIVE_WANDER(suspect, suspectCar, speed, 2883621); }
+    // new escape point 600-1100 m away from the player (random +-70 degrees), on a main road
+    void PickGoal() {
+        Vector3 me = Pos(suspectCar), pl = PlayerPos();
+        float base = atan2f(me.y - pl.y, me.x - pl.x) + (Rand01() - 0.5f) * 2.4f;
+        float d = 600.0f + Rand01() * 500.0f;
+        goal = SnapRoad(V(me.x + cosf(base) * d, me.y + sinf(base) * d, me.z));
+        goalAt = Now();
+    }
 
+    void DriveFast(float speed) {
+        cruise = speed;
+        PickGoal();
+        TASK::TASK_VEHICLE_DRIVE_TO_COORD(suspect, suspectCar, goal, speed, 0, ENTITY::GET_ENTITY_MODEL(suspectCar), kCrazyStyle, 10.0f, 0.0f);
+        TASK::SET_DRIVE_TASK_CRUISE_SPEED(suspect, speed);
+    }
+
+    // runs every frame during the chase. No velocity hacks (they launched the car): only driving tasks.
+    // New escape point every 5 s or when reached; after a crash the drive task is re-issued at once so the car
+    // keeps going instead of idling; wedged for 1.2 s: face the escape point and drive again; flipped: back on its wheels.
+    void Rampage() {
+        Vector3 vel = ENTITY::GET_ENTITY_VELOCITY(suspectCar), fwd = ENTITY::GET_ENTITY_FORWARD_VECTOR(suspectCar);
+        float speed = Len2(vel);
+        float along = vel.x * fwd.x + vel.y * fwd.y;
+        int now = Now();
+        if (now - goalAt > 5000 || Dist2(Pos(suspectCar), goal) < 100.0f) DriveFast(cruise);
+
+        Vector3 rot = ENTITY::GET_ENTITY_ROTATION(suspectCar, 2);
+        bool upright = fabsf(rot.x) < 40.0f && fabsf(rot.y) < 40.0f;
+        if (!upright && !ENTITY::IS_ENTITY_IN_AIR(suspectCar) && now - lastBoost > 2500) {
+            VEHICLE::SET_VEHICLE_ON_GROUND_PROPERLY(suspectCar, 5.0f);
+            lastBoost = now;
+        }
+
+        if (speed < 3.0f || along < -0.5f) {
+            if (!stuckSince) stuckSince = now;
+            if (now - stuckSince > 1200 && now - lastBoost > 1200) {
+                if (upright) ENTITY::SET_ENTITY_HEADING(suspectCar, HeadingTo(Pos(suspectCar), goal));
+                DriveFast(cruise);
+                stuckSince = now;
+                lastBoost = now;
+            }
+        } else stuckSince = 0;
+    }
     void ApplyHitEffect() {
-        float speed = std::max(18.0f, 38.0f - hits * 2.2f);
+        float speed = std::max(15.0f, 24.0f - hits * 1.0f);
         VEHICLE::SET_VEHICLE_ENGINE_HEALTH(suspectCar, std::max(300.0f, 1000.0f - hits * 90.0f));
         DriveFast(speed);
     }
@@ -232,7 +289,7 @@ struct PoliceChaseJob : Job {
 
     void Cleanup() override {
         if (gate) gate->Cleanup();
-        DelBlip(bArea); DelBlip(bSuspect); DelBlip(bStation);
+        DelBlip(bArea); DelBlip(bSpotPt); DelBlip(bSuspect); DelBlip(bStation);
         if (cruiser && Ex(cruiser)) VEHICLE::SET_VEHICLE_SIREN(cruiser, FALSE);
         Rel(suspect); Rel(suspectCar); Rel(cruiser);
     }

@@ -705,15 +705,17 @@ static void Zone(Vector3 p, float radius, Col c, const std::string &label, bool 
     }
 
     float sx = 0, sy = 0;
-    if (!GRAPHICS::GET_SCREEN_COORD_FROM_WORLD_COORD(V(p.x, p.y, p.z + 7.0f), &sx, &sy)) return;
+    if (!GRAPHICS::GET_SCREEN_COORD_FROM_WORLD_COORD(V(p.x, p.y, p.z + 18.0f), &sx, &sy)) return;
     sx *= 1280.0f;
     sy *= 720.0f;
     if (sx < 0 || sx > 1280 || sy < 0 || sy > 720) return;
+    // small tag kept in the upper part of the screen so it never covers the road ahead
+    sy = std::min(sy, 150.0f);
     std::string text = label + "  " + KmStr(Dist(PlayerPos(), p));
-    float w = TextW(text, 17.0f, true) + 30.0f;
-    Glass(sx - w / 2.0f, sy - 5.0f, w, 34.0f, Col(8, 14, 24, 215), col, 1, 9);
-    Text(text, sx, sy, 17.0f, Col(), AL_CENTER, true);
-    if (inside) Text("อยู่ในโซนแล้ว - หยุดรถ", sx, sy + 34.0f, 15.0f, Col(90, 255, 130), AL_CENTER, true);
+    float w = TextW(text, 13.0f, true) + 20.0f;
+    Glass(sx - w / 2.0f, sy - 3.0f, w, 24.0f, Col(8, 14, 24, 150), col, 1, 7);
+    Text(text, sx, sy, 13.0f, Col(), AL_CENTER, true);
+    if (inside) Text("อยู่ในโซนแล้ว - หยุดรถ", sx, sy + 26.0f, 13.0f, Col(90, 255, 130), AL_CENTER, true);
 }
 
 }  // namespace Ui

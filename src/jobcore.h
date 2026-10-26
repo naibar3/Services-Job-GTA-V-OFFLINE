@@ -40,12 +40,14 @@ struct Job {
         pay = (int)lroundf(pay * cfg.payMult);
         AddMoney(pay);
         paid = pay;
+        Log("job %d COMPLETE pay=%d: %s", kind, pay, msg.c_str());
         success = true;
         finished = true;
         Ui::Notify(msg + "  ได้รับ " + MoneyStr(pay), 8.0f);
         Ui::Beep("PROPERTY_PURCHASE", "HUD_AWARDS");
     }
     void Fail(const std::string &msg) {
+        Log("job %d FAIL: %s", kind, msg.c_str());
         success = false;
         finished = true;
         Ui::Notify("งานล้มเหลว: " + msg, 8.0f);
@@ -144,7 +146,7 @@ static std::vector<std::string> SlideValid() {
 
 static std::vector<std::string> Models(int kind) {
     switch (kind) {
-        case K_TOW: { std::vector<std::string> v = {"towtruck", "towtruck2"}; for (auto &m : SlideValid()) v.push_back(m); return v; }
+        case K_TOW: { std::vector<std::string> v; for (auto &m : SlideValid()) v.push_back(m); return v; }
         case K_TAXI: return {"taxi"};
         case K_TOUR: return {"coach"};
         case K_TRUCK: return {"phantom", "hauler"};
@@ -348,6 +350,7 @@ static bool Begin(Offer &o) {
         j->kind = o.kind;
         j->Start();
         std::string nm = j->Name();
+        Log("job %d BEGIN: %s", o.kind, nm.c_str());
         active = std::move(j);
         Ui::Notify("รับงาน: " + nm);
         return true;
@@ -358,6 +361,7 @@ static bool Begin(Offer &o) {
     }
 }
 static void Cancel() {
+    if (active) Log("job %d CANCELLED", active->kind);
     if (!active) return;
     active->Cleanup();
     Ui::Notify("ยกเลิกงาน: " + active->Name());

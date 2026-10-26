@@ -59,7 +59,7 @@ struct TourJob : Job {
     }
 
     void Start() override {
-        for (auto &s : tour.stops) stops.push_back(SnapRoad(s.pos));
+        for (auto &s : tour.stops) stops.push_back(SnapNear(s.pos, 200.0f));
         gate.reset(new VehicleGate(K_TOUR, "รถทัวร์", {"coach"}, [](Vehicle v) { return VehModel(v, "coach") || VehModel(v, "bus"); }));
         objective = gate->Objective();
     }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1
+
+- Fix: delivery/hospital/depot points snapped to a reachable main road (within 150 m); taxi and tour points no longer dragged to a far road
+- Police: GPS route to the suspect area, suspect drives normally (no velocity hacks, no flying, re-issues the drive task after a crash instead of reversing slowly)
+- Taxi: pickup within 2 km, drop-off on a random main road anywhere on the map
+- Tow/repo now uses flatbed (slide bed) trucks only
+- Zone label is smaller and kept at the top of the screen so it does not cover the road
+- Job BEGIN / COMPLETE / FAIL / CANCELLED lines in `log.txt`
+
 ## 1.0
 
 First release (C++ ScriptHookV ASI).

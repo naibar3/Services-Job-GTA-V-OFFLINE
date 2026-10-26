@@ -1,7 +1,7 @@
 # Builds ServicesJob.asi and creates the two release packages in dist\:
 #   ServicesJob-v<ver>-install.zip   for players  (asi + install.bat + READMEs/manual + font notice)
 #   ServicesJob-v<ver>-source.zip    for developers (sources, docs, build scripts; NO Script Hook V SDK)
-param([string]$Version = "1.0")
+param([string]$Version = "1.1")
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $utf8bom = New-Object System.Text.UTF8Encoding($true)

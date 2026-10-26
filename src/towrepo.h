@@ -19,7 +19,7 @@ struct TowRepoJob : Job {
     std::unique_ptr<Winch> winch;
 
     TowRepoJob(bool r, Vector3 s, float h, const std::string &car, const Place &d, int pay)
-        : repo(r), spot(s), spotHeading(h), carModel(car), drop(d), basePay(pay) {}
+        : repo(r), spot(s), spotHeading(h), carModel(car), drop(d), basePay(pay) { drop.pos = SnapNear(drop.pos); }
 
     std::string Name() override { return repo ? "ยึดรถค้างชำระ" : "ลากรถเสีย"; }
 
@@ -53,10 +53,10 @@ struct TowRepoJob : Job {
     }
 
     void Start() override {
-        std::vector<std::string> models = {"towtruck", "towtruck2"};
+        std::vector<std::string> models;   // flatbed (slide bed) trucks only
         for (auto &m : Depots::SlideValid()) models.push_back(m);
         gate.reset(new VehicleGate(K_TOW, "ลากรถ", models, [](Vehicle v) {
-            return VehModel(v, "towtruck") || VehModel(v, "towtruck2") || Slide::IsSlide(v);
+            return Slide::IsSlide(v);
         }));
         objective = gate->Objective();
     }

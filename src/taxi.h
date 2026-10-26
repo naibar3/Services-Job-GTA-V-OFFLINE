@@ -30,18 +30,35 @@ struct TaxiJob : Job {
     int boardStart = 0, limitEnd = 0, leaveStart = 0;
     bool changed = false;
 
-    TaxiJob(Vector3 p, float h, const Place &d, const Place &d2, Evt e) : pickup(p), pickHeading(h), dest(d), dest2(d2), evt(e) {}
+    TaxiJob(Vector3 p, float h, const Place &d, const Place &d2, Evt e) : pickup(p), pickHeading(h), dest(d), dest2(d2), evt(e) { dest.pos = SnapNear(dest.pos, 200.0f); dest2.pos = SnapNear(dest2.pos, 200.0f); }
     std::string Name() override { return "แท็กซี่"; }
+
+    // any main road on the map: random point inside the map bounds snapped to the nearest road node (rejected when the node is far, e.g. sea)
+    static bool RandomRoadPlace(Vector3 from, float minDist, Place &out) {
+        for (int i = 0; i < 40; i++) {
+            Vector3 p = V(-3300.0f + Rand01() * 6200.0f, -3000.0f + Rand01() * 9500.0f, 60.0f), o;
+            if (!PATHFIND::GET_CLOSEST_VEHICLE_NODE(p, &o, 0, 3.0f, 0.0f)) continue;
+            if (Dist2(o, p) > 250.0f || Dist2(o, from) < minDist) continue;
+            std::string st = StreetAt(o);
+            out = Place(st.empty() ? "ถนนสายหนึ่ง" : "ถนน " + st, o.x, o.y, o.z);
+            return true;
+        }
+        return false;
+    }
 
     static std::unique_ptr<Offer> MakeOffer(Vector3 pp) {
         Vector3 pos;
         float hd;
-        if (!FindRoad(pp, 250.0f, 1300.0f, pos, hd)) return nullptr;
+        if (!FindRoad(pp, 250.0f, 2000.0f, pos, hd)) return nullptr;
         const auto &L = Landmarks();
-        const Place *d = nullptr, *d2 = nullptr;
-        for (int i = 0; i < 20 && !d; i++) { const Place &c = L[RandInt(0, (int)L.size())]; float k = Dist2(c.pos, pos); if (k > 1500 && k < 9000) d = &c; }
-        if (!d) return nullptr;
-        for (int i = 0; i < 20 && !d2; i++) { const Place &c = L[RandInt(0, (int)L.size())]; if (&c != d && Dist2(c.pos, pos) > 1500) d2 = &c; }
+        Place dA, dB;
+        const Place *d = &dA, *d2 = &dB;
+        if (!RandomRoadPlace(pos, 1500.0f, dA)) {   // fallback: the fixed landmark list
+            d = nullptr;
+            for (int i = 0; i < 20 && !d; i++) { const Place &c = L[RandInt(0, (int)L.size())]; if (Dist2(c.pos, pos) > 1500) d = &c; }
+            if (!d) return nullptr;
+        }
+        if (!RandomRoadPlace(pos, 1500.0f, dB)) d2 = d;
         int r = RandInt(0, 100);
         Evt e = r < 45 ? E_NORMAL : r < 62 ? E_URGENT : r < 77 ? E_DRUNK : r < 92 ? E_CHANGE : E_RUNNER;
         int pay = 100 + (int)(Dist2(pos, d->pos) * 0.09f);
@@ -52,7 +69,7 @@ struct TaxiJob : Job {
         std::string tag = e == E_URGENT ? "ด่วน! " : e == E_DRUNK ? "(เมา) " : "";
         o->title = "[แท็กซี่] " + tag + "รับที่ " + StreetAt(pos);
         o->line1 = "ไปส่ง " + d->name;
-        Place dd = *d, dd2 = d2 ? *d2 : *d;
+        Place dd = *d, dd2 = *d2;
         o->create = [=]() { return std::unique_ptr<Job>(new TaxiJob(pos, hd, dd, dd2, e)); };
         return o;
     }
@@ -132,7 +149,7 @@ struct TaxiJob : Job {
         stage = 3;
         traveled = 0;
         initialDist = Dist2(Pos(cab), dest.pos);
-        bDest = BlipPos(SnapRoad(dest.pos), SPR_STD, COL_GREEN, "Destination", true);
+        bDest = BlipPos(dest.pos, SPR_STD, COL_GREEN, "Destination", true);
         switch (evt) {
             case E_URGENT: limitEnd = Now() + ((int)(initialDist / 17.0f) + 40) * 1000; Ui::Notify("ผู้โดยสาร: \"รีบมาก! ถึงทันเวลาจะให้โบนัส\""); break;
             case E_DRUNK: Ui::Notify("ผู้โดยสารเมา ขับนิ่มๆ อย่าชน จะได้ทิป"); break;
@@ -152,7 +169,7 @@ struct TaxiJob : Job {
             dest = dest2;
             initialDist = Dist2(Pos(cab), dest.pos);
             DelBlip(bDest);
-            bDest = BlipPos(SnapRoad(dest.pos), SPR_STD, COL_GREEN, "Destination", true);
+            bDest = BlipPos(dest.pos, SPR_STD, COL_GREEN, "Destination", true);
             Ui::Notify("ผู้โดยสารขอเปลี่ยนจุดหมายเป็น " + dest.name);
             d = Dist(Pos(cab), dest.pos);
         }
@@ -163,7 +180,7 @@ struct TaxiJob : Job {
             timer = "\nเวลา " + (left >= 0 ? ClockStr(left) : "เกินเวลา -" + ClockStr(-left));
         }
         info = "มิเตอร์ " + MoneyStr((int)Fare()) + "  ห่าง " + KmStr(d) + timer;
-        Vector3 dp = SnapRoad(dest.pos);
+        Vector3 dp = dest.pos;
         Ui::Zone(dp, 11.0f, Ui::kGreen, "จุดส่งผู้โดยสาร");
         if (Dist(Pos(cab), dp) < 24.0f && sp < 2.5f) {
             stage = 4;

@@ -19,7 +19,7 @@ struct AmbulanceJob : Job {
     bool hasGurney = false;
     Vector3 unloadTo = V(0, 0, 0);
 
-    AmbulanceJob(Vector3 s, float h, bool c, const Place &hosp, int pay) : spot(s), spotHeading(h), crash(c), hospital(hosp), basePay(pay) {}
+    AmbulanceJob(Vector3 s, float h, bool c, const Place &hosp, int pay) : spot(s), spotHeading(h), crash(c), hospital(hosp), basePay(pay) { hospital.pos = SnapNear(hospital.pos); }
     std::string Name() override { return "รถพยาบาลฉุกเฉิน"; }
 
     static const std::vector<Place> &Hospitals() {

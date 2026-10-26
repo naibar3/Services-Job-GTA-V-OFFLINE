@@ -23,7 +23,7 @@
 #include "inc/enums.h"
 #include "inc/main.h"
 
-#define SJ_VERSION "1.0"
+#define SJ_VERSION "1.1"
 
 // ---------------------------------------------------------------- math
 static Vector3 V(float x, float y, float z) { Vector3 v; v.x = x; v.y = y; v.z = z; return v; }
@@ -409,6 +409,12 @@ static bool FindRoad(Vector3 around, float mn, float mx, Vector3 &out, float &hd
 static Vector3 SnapRoad(Vector3 p) {
     Vector3 o;
     if (PATHFIND::GET_CLOSEST_VEHICLE_NODE(p, &o, 0, 3.0f, 0.0f)) return o;
+    return p;
+}
+// destination coordinates written by hand are approximate (inside buildings / compounds): use the nearest main road when one is close
+static Vector3 SnapNear(Vector3 p, float maxDist = 150.0f) {
+    Vector3 o;
+    if (PATHFIND::GET_CLOSEST_VEHICLE_NODE(p, &o, 0, 3.0f, 0.0f) && Dist(o, p) <= maxDist) return o;
     return p;
 }
 static std::string StreetAt(Vector3 p) {

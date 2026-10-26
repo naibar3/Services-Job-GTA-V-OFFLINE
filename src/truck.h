@@ -14,7 +14,7 @@ struct TruckJob : Job {
     int holdStart = 0, limitEnd = 0;
     float trailerHp0 = 0;
 
-    TruckJob(Cargo c, const Place &d, const Place &t, int pay) : cargo(c), depot(d), target(t), basePay(pay) {}
+    TruckJob(Cargo c, const Place &d, const Place &t, int pay) : cargo(c), depot(d), target(t), basePay(pay) { depot.pos = SnapNear(depot.pos); target.pos = SnapNear(target.pos); }
 
     static const char *CargoName(Cargo c) {
         switch (c) { case C_FRAGILE: return "สินค้าเปราะบาง"; case C_RUSH: return "สินค้าด่วน"; case C_LIQUID: return "ของเหลว (ถังน้ำมัน)"; }

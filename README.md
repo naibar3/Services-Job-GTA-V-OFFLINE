@@ -6,7 +6,7 @@ C++17 ASI on the Script Hook V SDK. Offline use only.
 
 | | |
 |---|---|
-| Users | install package `ServicesJob-v1.0-install.zip` → `README-TH.txt`, `USER-MANUAL-TH.md` |
+| Users | install package `ServicesJob-v1.1-install.zip` → `README-TH.txt`, `USER-MANUAL-TH.md` |
 | Developers | this source package → `docs/DEVELOPER-GUIDE.md` |
 
 ## Quick start (developers)
